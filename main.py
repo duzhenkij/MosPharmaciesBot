@@ -1,0 +1,92 @@
+import pandas as pd
+from Parser import Parser
+from loguru import logger
+
+# logging is necessary for catching errors in progress of using and future troubleshooting
+logger.add('debug.json', format='{time} {level} {message}', level='DEBUG', rotation='10 MB',
+           compression='zip', serialize=True)
+
+
+def get_dataframe(titles: list, dosages: list, prices: list, pharmacy_name: str):
+    df = pd.DataFrame({
+        'title': titles,
+        'dosage': dosages,
+        'price': prices,
+    })
+    df['pharmacy_name'] = pharmacy_name
+
+    df = df[pd.to_numeric(df['price'], errors='coerce').notnull()]
+    return df
+
+
+def get_result_dataframe(dataframes: list, user_query):
+    df = pd.concat(dataframes, ignore_index=True)
+    df = df.astype({'price': 'float'})
+    df = df[(df['title'].str.contains(user_query[:-2])) | (df['title'].str.contains(user_query[:-2].lower()))]
+    df_sorted = df.sort_values(by='price', ascending=True)
+    df_head = df_sorted.head(20)
+    df_reset_indexes = df_head.reset_index(drop=True)
+
+    return df_reset_indexes
+
+
+def prettify_result_df_to_beautiful_string(frame):
+    df_dict = frame.to_dict()
+
+    df_list = []
+    for i in range(0, len(frame)):
+        line = str(i + 1) + ') ' + \
+               str(df_dict.get('pharmacy_name').get(i)) + ' — ' + \
+               str(df_dict.get('title').get(i)) + ', ' + \
+               str(df_dict.get('dosage').get(i)) + ' — ' + \
+               str(int(round(df_dict.get('price').get(i)))) + ' руб.\n'
+        df_list.append(line)
+
+    result_text = '\n'.join(df_list)
+
+    return result_text
+
+
+@logger.catch()
+def get_result_to_user(user_query):
+
+    logger.debug(f'Запрос пользователя --- {user_query}')
+
+    pharmacy366_data = Parser(user_query).parse_pharmacy_36_6()
+    try:
+        pharmacy366_frame = get_dataframe(pharmacy366_data[0], pharmacy366_data[1], pharmacy366_data[2], 'Аптека 36.6')
+    except TypeError:
+        pharmacy366_frame = get_dataframe([], [], [], 'Аптека 36.6')
+
+    gorzdrav_data = Parser(user_query).parse_gorzdrav()
+    try:
+        gorzdrav_frame = get_dataframe(gorzdrav_data[0], gorzdrav_data[1], gorzdrav_data[2], 'Горздрав')
+    except TypeError:
+        gorzdrav_frame = get_dataframe([], [], [], 'Горздрав')
+
+    samson_data = Parser(user_query).parse_samson_pharma()
+    try:
+        samson_frame = get_dataframe(samson_data[0], samson_data[1], samson_data[2], 'Самсон-Фарма')
+    except TypeError:
+        samson_frame = get_dataframe([], [], [], 'Самсон-Фарма')
+
+    zdorov_ru_data = Parser(user_query).parse_zdorov_ru()
+    try:
+        zdorov_ru_frame = get_dataframe(zdorov_ru_data[0], zdorov_ru_data[1], zdorov_ru_data[2], 'Здоров.ру')
+    except TypeError:
+        zdorov_ru_frame = get_dataframe([], [], [], 'Здоров.ру')
+
+    stolichki_data = Parser(user_query).parse_stolichki()
+    try:
+        stolichki_frame = get_dataframe(stolichki_data[0], stolichki_data[1], stolichki_data[2], 'Аптеки Столички')
+    except TypeError:
+        stolichki_frame = get_dataframe([], [], [], 'Аптеки Столички')
+
+    pharmacies_frames = [pharmacy366_frame, gorzdrav_frame, samson_frame, zdorov_ru_frame, stolichki_frame]
+    result_frame = get_result_dataframe(pharmacies_frames, user_query)
+    pretty_string_frame = prettify_result_df_to_beautiful_string(result_frame)
+
+    logger.info(f'Запрос пользователя --- {user_query} --- выполнен')
+    logger.debug(f'Результат запроса\n{pretty_string_frame}')
+
+    return pretty_string_frame
