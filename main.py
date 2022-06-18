@@ -22,7 +22,14 @@ def get_dataframe(titles: list, dosages: list, prices: list, pharmacy_name: str)
 def get_result_dataframe(dataframes: list, user_query):
     df = pd.concat(dataframes, ignore_index=True)
     df = df.astype({'price': 'float'})
-    df = df[(df['title'].str.contains(user_query[:-2])) | (df['title'].str.contains(user_query[:-2].lower()))]
+    if len(user_query) <= 5:
+        df = df[(df['title'].str.contains(user_query)) | (df['title'].str.contains(user_query.lower()))]
+    else:
+        df = df[(df['title'].str.contains(user_query[:-2])) | (df['title'].str.contains(user_query[:-2].lower()))]
+
+    # delete it after test
+    df.to_csv('res.csv')
+
     df_sorted = df.sort_values(by='price', ascending=True)
     df_head = df_sorted.head(20)
     df_reset_indexes = df_head.reset_index(drop=True)
@@ -40,7 +47,7 @@ def prettify_result_df_to_beautiful_string(frame):
                str(df_dict.get('title').get(i)) + ', ' + \
                str(df_dict.get('dosage').get(i)) + ' — ' + \
                str(int(round(df_dict.get('price').get(i)))) + ' руб.\n'
-        df_list.append(line)
+        df_list.append(line.replace(', None', ''))
 
     result_text = '\n'.join(df_list)
 
