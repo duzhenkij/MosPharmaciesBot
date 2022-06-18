@@ -26,10 +26,6 @@ def get_result_dataframe(dataframes: list, user_query):
         df = df[(df['title'].str.contains(user_query)) | (df['title'].str.contains(user_query.lower()))]
     else:
         df = df[(df['title'].str.contains(user_query[:-2])) | (df['title'].str.contains(user_query[:-2].lower()))]
-
-    # delete it after test
-    df.to_csv('res.csv')
-
     df_sorted = df.sort_values(by='price', ascending=True)
     df_head = df_sorted.head(20)
     df_reset_indexes = df_head.reset_index(drop=True)
