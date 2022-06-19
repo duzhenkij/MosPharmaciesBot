@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 from Parser import Parser
 from loguru import logger
 
@@ -19,6 +20,57 @@ def get_dataframe(titles: list, dosages: list, prices: list, pharmacy_name: str)
     return df
 
 
+def normalize_dataframe(dataframe):
+    regex_count = r'(№\s\d+|N\s\d+|N\d+|№\d+|\d+ш.+|\d+\s+ш.+)'
+    regex_dosage = r'(\d+м.|\d+\s+м.|\d+г|\d+г.)'
+    replace_words_dict = {
+        r'^[Тт]аблетки|[Тт]абл\S|[Тт]аб\b': 'таб.',
+        r'^[Кк]апсулы|[Кк]апсул\S|[Кк]апс\b': 'капс.',
+        r'^[Рр]аствор|[Рр]аств\S': 'р-р',
+        r'^[Пп]орошок': 'пор.',
+        r'^[Гг]ранулы|[Гг]ранул\S': 'гран.',
+        r'[Дд]ля\s': 'д/',
+        r'[Уу]влажняющий': 'увлаж.',
+        r'[Пп]итательный': 'питат.',
+        r'[Оо]чищающий': 'питат.',
+        r'[Сс]ироп': 'сироп',
+        r'[Гг]ель': 'гель',
+        r'[Кк]рем': 'гель'
+    }
+
+    count_medicine_list = []
+    dosage_medicine_list = []
+    dosage_medicine_unit_list = []
+    type_medicine_list = []
+
+    for i in list(dataframe['dosage']):
+        if type(i) is str:
+            count_num = ''.join(re.findall(regex_count, i))
+            count_extraction = ''.join(re.findall(r'(\d+)', count_num)).strip() + ' шт.'
+            dosage_str = ''.join(re.findall(regex_dosage, i)).strip()
+            dosage_extraction = ''.join(re.findall(r'\d+', dosage_str))
+            dosage_unit_extraction = ''.join(re.findall(r'[мг.|мг|г|г.|мл|мл.]', dosage_str))
+            type_extraction = re.split(r'(\d+)|(N|№)', i)[0].strip()
+
+            count_medicine_list.append(count_extraction)
+            dosage_medicine_list.append(dosage_extraction)
+            dosage_medicine_unit_list.append(dosage_unit_extraction)
+            type_medicine_list.append(type_extraction)
+        else:
+            count_medicine_list.append(None)
+            dosage_medicine_list.append(None)
+            dosage_medicine_unit_list.append(None)
+            type_medicine_list.append(None)
+
+    dataframe['count'] = count_medicine_list
+    dataframe['dosage_med'] = dosage_medicine_list
+    dataframe['dosage_unit'] = dosage_medicine_unit_list
+    dataframe['type'] = type_medicine_list
+    dataframe['type'] = dataframe['type'].replace(regex=replace_words_dict)
+
+    return dataframe
+
+
 def get_result_dataframe(dataframes: list, user_query):
     df = pd.concat(dataframes, ignore_index=True)
     df = df.astype({'price': 'float'})
@@ -26,14 +78,17 @@ def get_result_dataframe(dataframes: list, user_query):
         df = df[(df['title'].str.contains(user_query)) | (df['title'].str.contains(user_query.lower()))]
     else:
         df = df[(df['title'].str.contains(user_query[:-2])) | (df['title'].str.contains(user_query[:-2].lower()))]
-    df_sorted = df.sort_values(by='price', ascending=True)
-    df_head = df_sorted.head(20)
-    df_reset_indexes = df_head.reset_index(drop=True)
 
+    df_normalized = normalize_dataframe(df)
+
+    df_sorted = df_normalized.sort_values(by=['price', 'count'], ascending=True)
+    df_head = df_sorted.head(25)
+    df_reset_indexes = df_head.reset_index(drop=True)
     return df_reset_indexes
 
 
 def prettify_result_df_to_beautiful_string(frame):
+
     df_dict = frame.to_dict()
 
     df_list = []
@@ -41,9 +96,19 @@ def prettify_result_df_to_beautiful_string(frame):
         line = str(i + 1) + ') ' + \
                str(df_dict.get('pharmacy_name').get(i)) + ' — ' + \
                str(df_dict.get('title').get(i)) + ', ' + \
-               str(df_dict.get('dosage').get(i)) + ' — ' + \
+               str(df_dict.get('type').get(i)) + ', ' + \
+               str(df_dict.get('dosage_med').get(i)) + ' ' + \
+               str(df_dict.get('dosage_unit').get(i)) + ', ' + \
+               str(df_dict.get('count').get(i)) + ' — ' + \
                str(int(round(df_dict.get('price').get(i)))) + ' руб.\n'
-        df_list.append(line.replace(', None', ''))
+
+        df_list.append(
+            line.replace(', None', '').
+            replace('..', '.').
+            replace(', шт. ', '').
+            replace('  ,', '').
+            replace(' None', '')
+        )
 
     result_text = '\n'.join(df_list)
 
