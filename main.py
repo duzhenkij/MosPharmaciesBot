@@ -67,7 +67,6 @@ def normalize_dataframe(dataframe):
     dataframe['dosage_unit'] = dosage_medicine_unit_list
     dataframe['type'] = type_medicine_list
     dataframe['type'] = dataframe['type'].replace(regex=replace_words_dict)
-    print(dataframe)
     return dataframe
 
 
