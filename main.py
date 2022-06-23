@@ -67,17 +67,18 @@ def normalize_dataframe(dataframe):
     dataframe['dosage_unit'] = dosage_medicine_unit_list
     dataframe['type'] = type_medicine_list
     dataframe['type'] = dataframe['type'].replace(regex=replace_words_dict)
-
+    print(dataframe)
     return dataframe
 
 
 def get_result_dataframe(dataframes: list, user_query):
     df = pd.concat(dataframes, ignore_index=True)
+    df['title_lower'] = df['title'].str.lower()
     df = df.astype({'price': 'float'})
     if len(user_query) <= 5:
-        df = df[(df['title'].str.contains(user_query)) | (df['title'].str.contains(user_query.lower()))]
+        df = df[df['title_lower'].str.contains(user_query.lower())]
     else:
-        df = df[(df['title'].str.contains(user_query[:-2])) | (df['title'].str.contains(user_query[:-2].lower()))]
+        df = df[df['title_lower'].str.contains(user_query[:-2].lower())]
 
     df_normalized = normalize_dataframe(df)
 
