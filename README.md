@@ -9,4 +9,4 @@ Bot was written in Python. It consists of:
 - functions from the main.py create a data frame, clean and sort it with Pandas and prettify the data frame to string in order to send it to user;
 - there is also a database with a statistic table of user queries in order to count number of users.
 
-The bot is located here <b>[@MosPharmaciesBot](https://t.me/MosPharmaciesBot)</b>)
+The bot is located here <b>[@MosPharmaciesBot](https://t.me/MosPharmaciesBot)</b>
